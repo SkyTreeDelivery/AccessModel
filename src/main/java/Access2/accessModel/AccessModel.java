@@ -48,20 +48,16 @@ public class AccessModel {
             dataBox.demandPoints.parallelStream()
                     .filter(demandPoint -> dijkstraResult.graph.nodes.contains(demandPoint.closestNode))
                     .forEach(demandPoint -> {
-                        double roadDis = dijkstraResult.nodeMap.get(demandPoint.closestNode).cost;
-                        double realDis = realDis(roadDis, resourcePoint, demandPoint);
-                        DemandPackage demandPackage = new DemandPackage(realDis, resourcePoint);
-                        demandPoint.demandPackages.add(demandPackage);
+                        double realDis = realDis(resourcePoint, demandPoint, dijkstraResult);
+                        demandPoint.demandPackages.add(new DemandPackage(realDis, resourcePoint));
                     });
 
             // 计算区域竞争指数
             resourcePoint.competeFactor = dataBox.popPoints.stream()
                     .filter(popPoint -> dijkstraResult.graph.nodes.contains(popPoint.closestNode))
                     .mapToDouble(popPoint -> {
-                        double popNum = popPoint.popNum;
-                        double roadDis = dijkstraResult.nodeMap.get(popPoint.closestNode).cost;
-                        double realDis = realDis(roadDis, resourcePoint, popPoint);
-                        return regionalCompleteFun.completeFactor(popNum, realDis, dampingFun, dis0);
+                        double realDis = realDis(resourcePoint, popPoint, dijkstraResult);
+                        return regionalCompleteFun.completeFactor(popPoint.popNum, realDis, dampingFun, dis0);
                     }).sum();
 
             // 计算实际吸引力
@@ -78,8 +74,9 @@ public class AccessModel {
         });
     }
 
-    private double realDis(double roadDis, ResourcePoint resourcePoint, DataPoint dataPoint){
-        return roadDis + resourcePoint.connDis + dataPoint.connDis;
+    private double realDis(ResourcePoint resourcePoint, DataPoint demandPoint, DijkstraResult dijkstraResult){
+        double roadDis = dijkstraResult.nodeMap.get(demandPoint.closestNode).cost;
+        return roadDis + resourcePoint.connDis + demandPoint.connDis;
     }
 
     public static class DemandPackage {

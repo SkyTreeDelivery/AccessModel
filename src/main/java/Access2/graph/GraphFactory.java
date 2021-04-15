@@ -1,24 +1,21 @@
 package Access2.graph;
 
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.LineString;
-import org.locationtech.jts.geom.Point;
+import Access2.utils.GeometryUtils;
+import org.locationtech.jts.geom.*;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKTReader;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class GraphFactory {
 
-    GeometryFactory geometryFactory = new GeometryFactory();
+    private static final GeometryFactory geometryFactory = new GeometryFactory();
     // 预编译正则表达式
     private static Pattern pattern= Pattern.compile(",(?=([^\\\"]*\\\"[^\\\"]*\\\")*[^\\\"]*$)");
 
@@ -77,6 +74,95 @@ public class GraphFactory {
         return null;
     }
 
+    public static Graph splitGraph(Graph graph,double targetLength){
+        Map<Node, Node> nodeSubNodeMap = graph.nodes.stream()
+                .collect(Collectors.toMap(node -> node, Node::deepCopy));
+
+        Set<Edge> edges = graph.edges.stream().map(edge -> {
+            Node in = nodeSubNodeMap.get(edge.in);
+            Node out = nodeSubNodeMap.get(edge.out);
+            double weight = edge.weight;
+            LineString lineString = edge.lineString;
+            double length = edge.length;
+
+            Set<Edge> subEdges = new HashSet<>();
+
+            // 如果小于阈值，则不作拆分，将整个Edge对象保存为一个subEdge对象
+            if (length < targetLength * 1.5) {
+                Edge subEdge = new Edge(in, out, weight, length, lineString);
+                in.outEdges.add(subEdge);
+                out.inEdges.add(subEdge);
+                subEdges.add(subEdge);
+                return subEdges;
+            }
+
+            //计算拆分后subEdge的长度
+            long num = Math.round(length / targetLength);
+            double newWeight = weight / num;
+            double subEdgeLength = length / num;
+
+            // 从Edge对象中拆分出SubEdge对象数组
+            // 初始化参数
+            int serial = 1;
+            Coordinate startP = lineString.getCoordinateN(0);
+            ArrayList<Coordinate> coos = new ArrayList<>();
+            coos.add(startP);
+
+            // 生成num个subEdge对象
+            for (int i = 1; i < num; i++) {
+                Coordinate endP = lineString.getCoordinateN(serial);
+                LineSegment lineSegment = new LineSegment(startP, endP);
+                double segLength = lineSegment.getLength();
+                double surplus = subEdgeLength - segLength;
+                // 如果已经找到断点所在的segment，则生成SubEdge对象
+                while (surplus > 0) {
+                    coos.add(endP);
+                    serial++;
+                    startP = endP;
+                    endP = lineString.getCoordinateN(serial);
+                    lineSegment = new LineSegment(startP, endP);
+                    segLength = lineSegment.getLength();
+                    surplus -= segLength;
+                }
+                // 计算断点
+                Coordinate breakP = GeometryUtils.getBreakPoint(startP, endP, (surplus + segLength) / segLength);
+                out = new Node(geometryFactory.createPoint(breakP));
+                coos.add(breakP);
+
+                // 生成新的lineString对象和Edge对象
+                LineString newLineString = geometryFactory.createLineString(coos.toArray(new Coordinate[0]));
+                Edge subEdge = new Edge(in, out, newWeight, newLineString.getLength(), newLineString);
+                in.outEdges.add(subEdge);
+                out.inEdges.add(subEdge);
+                subEdges.add(subEdge);
+
+                // 初始化部分参数
+                coos.clear();
+                coos.add(breakP);
+                // 更新下一轮使用的参数
+                startP = breakP;
+                in = out;
+            }
+
+            // 处理最后一个节点
+            for (int i = serial; i < lineString.getNumPoints(); i++) {
+                coos.add(lineString.getCoordinateN(i));
+            }
+
+            // 生成新的lineString对象和Edge对象
+            out = nodeSubNodeMap.get(edge.out);
+            LineString newLineString = geometryFactory.createLineString(coos.toArray(new Coordinate[0]));
+            Edge subEdge = new Edge(in, out, weight / num, newLineString.getLength(), newLineString);
+            in.outEdges.add(subEdge);
+            out.inEdges.add(subEdge);
+            subEdges.add(subEdge);
+            return subEdges;
+        }).flatMap(Collection::stream)
+                .collect(Collectors.toSet());
+
+        return new Graph(edges, new HashSet<>(nodeSubNodeMap.values()));
+    }
+
     public static Graph generateGraphFromEdges(Set<Edge> edges){
         // 清理拓扑
         edges.forEach(edge -> {
@@ -97,6 +183,7 @@ public class GraphFactory {
                 edge.in = in;
             } else {
                 pointNodeMap.put(in.point,in);
+                nodes.add(in);
             }
             in.outEdges.add(edge);
 
@@ -106,6 +193,7 @@ public class GraphFactory {
                 edge.out = out;
             } else {
                 pointNodeMap.put(out.point,out);
+                nodes.add(out);
             }
             out.inEdges.add(edge);
         });

@@ -124,15 +124,16 @@ public class Edge {
         // 处理最后一个节点
         for (int i = serial; i < lineString.getNumPoints(); i++) {
             coos.add(lineString.getCoordinateN(i));
-            // 生成新的lineString对象和Edge对象
-            LineString newLineString = geometryFactory.createLineString(coos.toArray(new Coordinate[0]));
-            double childCenterCo = (2 * num - 1) * 1.0 / (2 * num);
-            Edge subEdge = new Edge(generateId(), in, out, weight / num, newLineString.getLength(),newLineString ,subEdges.size(), this,childCenterCo);
-            subEdges.add(subEdge);
-            // TODO subEdge的中点估计位置
-            subEdge.center = geometryFactory.createPoint(getBreakPoint(in.point.getCoordinate()
-                    , out.point.getCoordinate(), 0.5));
         }
+
+        // 生成新的lineString对象和Edge对象
+        LineString newLineString = geometryFactory.createLineString(coos.toArray(new Coordinate[0]));
+        double childCenterCo = (2 * num - 1) * 1.0 / (2 * num);
+        Edge subEdge = new Edge(generateId(), in, out, weight / num, newLineString.getLength(),newLineString ,subEdges.size(), this,childCenterCo);
+        subEdges.add(subEdge);
+        // TODO subEdge的中点估计位置
+        subEdge.center = geometryFactory.createPoint(getBreakPoint(in.point.getCoordinate()
+                , out.point.getCoordinate(), 0.5));
 
     }
 

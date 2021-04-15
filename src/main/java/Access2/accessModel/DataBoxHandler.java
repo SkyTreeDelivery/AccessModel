@@ -8,7 +8,7 @@ import org.locationtech.jts.index.strtree.STRtree;
 
 public class DataBoxHandler {
 
-    public static void attachDataPointByWalk(Graph graph, DataBox dataBox, double walkSpeed) throws Exception {
+    public static void attachDataPoint(Graph graph, DataBox dataBox, double walkSpeed) throws Exception {
 
         STRtree nodeRtree = IndexFactory.generateNodeRtree(graph.nodes);
 

@@ -12,7 +12,9 @@ import org.locationtech.jts.geom.Point;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class Access2Test {
@@ -26,7 +28,7 @@ public class Access2Test {
     // 人口分布
     String popPath = "E:\\Data\\可达性研究\\人口数据\\武汉市人口点_CGCS2000_114E.shp";
 
-    double bandWith = 10;
+    double bandWith = 20;
 
     private Graph graph;
     private DataBox dataBox;
@@ -42,6 +44,8 @@ public class Access2Test {
 
         graph = GraphFactory.generateGraphFromEdges(edges);
 
+        dirPath += "\\sub";
+
         LocalDateTime after = LocalDateTime.now();
         System.out.println("step1 | 构建路网耗时：" + Duration.between(before,after).toMillis() + "ms");
 
@@ -53,40 +57,21 @@ public class Access2Test {
 
         before = LocalDateTime.now();
         dataBox = DataBoxFactory.getDataBox_poi_popgrid_edges(poiPath, popPath, this.graph.edges);
-        dirPath += "\\edge";
+        dirPath += "\\Edge";
         after = LocalDateTime.now();
         System.out.println("step2 | 读取数据耗时：" + Duration.between(before,after).toMillis() + "ms");
+
+        before = LocalDateTime.now();
+        DataBoxHandler.attachDataPoint(graph, dataBox, AccessModel.DEFAULT_WALK_SPEED);
+        after = LocalDateTime.now();
+        System.out.println("step3 | 数据点附着耗时：" + Duration.between(before,after).toMillis() + "ms");
     }
 
     @Test
     public void kernel_basic_test() throws Exception {
-
         init();
 
-        DataBoxHandler.attachDataPointByWalk(graph, dataBox, AccessModel.DEFAULT_WALK_SPEED);
-
-        AccessModel accessModel = AccessModelFactory.kernel(
-                graph,
-                dataBox,
-                DampingFunImp.parabolic,
-                bandWith,
-                AggregationFunImp.sum
-        );
-
-        accessModel.calculate();
-
-        String filePath = dirPath +
-                "\\计算结果" +
-                "带宽" + bandWith +
-                ".shp";
-        AccessModelSaver.save(filePath, accessModel);
-    }
-
-    @Test
-    public void kernel_complete_test() throws Exception {
-        init();
-
-        DataBoxHandler.attachDataPointByWalk(graph, dataBox, AccessModel.DEFAULT_WALK_SPEED);
+        DataBoxHandler.attachDataPoint(graph, dataBox, AccessModel.DEFAULT_WALK_SPEED);
 
         AccessModel accessModel = AccessModelFactory.kernel_basic(
                 graph,
@@ -99,22 +84,99 @@ public class Access2Test {
         accessModel.calculate();
 
         String filePath = dirPath +
-                "\\计算结果" +
+                "\\kernel_basic_" +
                 "带宽_" + bandWith +
                 ".shp";
         AccessModelSaver.save(filePath, accessModel);
     }
 
     @Test
-    public void pointTest(){
-        GeometryFactory geometryFactory = new GeometryFactory();
-        Point point = geometryFactory.createPoint(new Coordinate(1, 2));
-        HashSet<Point> points = new HashSet<>();
-        points.add(point);
-        Point newPoint = geometryFactory.createPoint(new Coordinate(1, 2));
-        System.out.println(points.contains(newPoint));
+    public void kernel_complete_test() throws Exception {
+
+        init();
+
+        DataBoxHandler.attachDataPoint(graph, dataBox, AccessModel.DEFAULT_WALK_SPEED);
+
+        AccessModel accessModel = AccessModelFactory.kernel(
+                graph,
+                dataBox,
+                DampingFunImp.parabolic,
+                bandWith,
+                AggregationFunImp.sum
+        );
+
+        accessModel.calculate();
+
+        String filePath = dirPath +
+                "\\kernel_complete_" +
+                "带宽" + bandWith +
+                ".shp";
+        AccessModelSaver.save(filePath, accessModel);
     }
 
+    @Test
+    public void kernel_basic_batch_test() throws Exception {
+
+        init();
 
 
+
+        List<Integer> bandWiths = Arrays.asList(10, 15, 20);
+
+        for (Integer bandWith : bandWiths) {
+            AccessModel accessModel = AccessModelFactory.kernel_basic(
+                    graph,
+                    dataBox,
+                    DampingFunImp.parabolic,
+                    bandWith,
+                    AggregationFunImp.sum
+            );
+
+            accessModel.calculate();
+
+            String filePath = dirPath +
+                    "\\kernel_basic_" +
+                    "带宽_" + bandWith +
+                    ".shp";
+            AccessModelSaver.save(filePath, accessModel);
+        }
+    }
+
+    @Test
+    public void kernel_complete_batch_test() throws Exception {
+
+        init();
+
+        DataBoxHandler.attachDataPoint(graph, dataBox, AccessModel.DEFAULT_WALK_SPEED);
+
+        List<Integer> bandWiths = Arrays.asList(10, 15, 20);
+
+        for (Integer bandWith : bandWiths) {
+            AccessModel accessModel = AccessModelFactory.kernel(
+                    graph,
+                    dataBox,
+                    DampingFunImp.parabolic,
+                    bandWith,
+                    AggregationFunImp.sum
+            );
+
+            accessModel.calculate();
+
+            String filePath = dirPath +
+                    "\\kernel_complete_" +
+                    "带宽" + bandWith +
+                    ".shp";
+            AccessModelSaver.save(filePath, accessModel);
+        }
+    }
+
+    @Test
+    public void pointTest(){
+        GeometryFactory geometryFactory = new GeometryFactory();
+        Point point = geometryFactory.createPoint(new Coordinate(1.1, 2.0));
+        HashSet<Point> points = new HashSet<>();
+        points.add(point);
+        Point newPoint = geometryFactory.createPoint(new Coordinate(1.1, 2.0));
+        System.out.println(points.contains(newPoint));
+    }
 }

@@ -80,7 +80,7 @@ public class GraphHandler {
 
     private static List<Edge> splitEdge(Edge edge, double targetLength) {
         Node in = Node.deepCopy(edge.in);
-        Node out =  Node.deepCopy(edge.out);
+        Node out = null;
         double weight = edge.weight;
         LineString lineString = edge.lineString;
         double length = edge.length;
@@ -89,6 +89,7 @@ public class GraphHandler {
 
         // 如果小于阈值，则不作拆分，将整个Edge对象保存为一个subEdge对象
         if (length < targetLength * 1.5) {
+            out = Node.deepCopy(edge.out);
             Edge subEdge = new Edge(in, out, weight, length, lineString);
             result.add(subEdge);
             return result;
@@ -143,11 +144,13 @@ public class GraphHandler {
         // 处理最后一个节点
         for (int i = serial; i < lineString.getNumPoints(); i++) {
             coos.add(lineString.getCoordinateN(i));
-            // 生成新的lineString对象和Edge对象
-            LineString newLineString = geometryFactory.createLineString(coos.toArray(new Coordinate[0]));
-            Edge subEdge = new Edge(in, out, weight / num, newLineString.getLength(), newLineString);
-            result.add(subEdge);
         }
+
+        // 生成新的lineString对象和Edge对象
+        out = Node.deepCopy(edge.out);
+        LineString newLineString = geometryFactory.createLineString(coos.toArray(new Coordinate[0]));
+        Edge subEdge = new Edge(in, out, weight / num, newLineString.getLength(), newLineString);
+        result.add(subEdge);
         return result;
     }
 }
