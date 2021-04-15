@@ -1,11 +1,15 @@
-import Graph.Edge;
-import Graph.Graph;
-import Graph.Node;
-import Graph.ShortestPath.Dijkstra.DijkstraPathFinder;
-import Graph.ShortestPath.MathFunc;
-import Graph.kde.KDE;
-import Graph.kde.Poi;
+import Access1.GeoUtils;
+import Access1.GraphHandleUtils;
+import Access1.TransformUtils;
+import Access1.graph.Edge;
+import Access1.graph.Graph;
+import Access1.graph.Node;
+import Access1.graph.ShortestPath.Dijkstra.DijkstraPathFinder;
+import Access1.graph.ShortestPath.MathFunc;
+import Access1.graph.kde.KDE;
+import Access1.graph.kde.Poi;
 import org.geotools.data.FeatureSource;
+import org.geotools.data.simple.SimpleFeatureCollection;
 import org.geotools.feature.FeatureCollection;
 import org.junit.Test;
 import org.locationtech.jts.geom.Geometry;
@@ -20,6 +24,11 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static java.util.stream.Collectors.toList;
@@ -32,14 +41,24 @@ public class MainTest {
     private List<Edge> subEdgeList;
     private String dirPath;
     private String poiPath;
+    private Map<SimpleFeature, Edge> popPointEdgeMap;
+    private SimpleFeatureCollection pops;
+    private STRtree popRtree;
+    private String subDirName;
+    private Map<Edge, SimpleFeature> edgeSimpleFeatureMap;
+    private Map<Point, Edge> centerSubEdgeMap;
+
+    ExecutorService executorService = Executors.newFixedThreadPool(8);
 
     @Test
     public void accessibilityTest() throws Exception {
 
-        int[] costThresholdArray = IntStream.rangeClosed(0, 7).map(i -> i * 15).toArray();
+        System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "4");
+
+        int[] costThresholdArray = IntStream.rangeClosed(2,4).map(i -> i * 15).toArray();
         costThresholdArray[0] = -1;
 
-        int[] bandWithArray = IntStream.rangeClosed(0, 7).map(i -> i * 1).toArray();
+        int[] bandWithArray = IntStream.rangeClosed(1, 8).map(i -> i * 2).toArray();
 
         // 剖分长度 单位：m
         double SPLIT_LENGTH = 200;
@@ -48,7 +67,8 @@ public class MainTest {
         dirPath = "E:\\Data\\可达性研究\\Accessibility_wuhan_投影";
 
         // 结果输出Dir
-        String subDirName = "node_二三级医院_Weight_allPop_subEdge附着_修正正无穷_降低郊区异常值_记录执行时间" + "cost_" + costThresholdArray.length +
+        subDirName = "优化人口附着_清除无效子Graph_" +
+                "cost_" + costThresholdArray.length +
                 "band_" + bandWithArray.length;
 
         poiPath = "E:\\Data\\可达性研究\\医院数据\\二三级医院_加权_CGCS2000_114E_all.shp";
@@ -71,7 +91,7 @@ public class MainTest {
                 System.out.println("-------------------------");
                 System.out.println("start | 第" + ++num + "次计算");
 
-                calculate(COST_THRESHOLD, BAND_WITH, subDirName);
+                calculate(COST_THRESHOLD, BAND_WITH);
 
                 LocalDateTime now = LocalDateTime.now();
 
@@ -94,6 +114,7 @@ public class MainTest {
         // 生成自定义Graph
         myGraph = TransformUtils.generateGraphFromCSV(dirPath + "\\link.csv"
                 , dirPath + "\\node.csv");
+        myGraph = GraphHandleUtils.extractMaxGraph(myGraph);
         Map<Integer, Node> myNodeMap = myGraph != null ? myGraph.nodes.parallelStream()
                 .collect(toMap(e -> e.id, e -> e)) : null;
         LocalDateTime after = LocalDateTime.now();
@@ -104,16 +125,20 @@ public class MainTest {
         before = LocalDateTime.now();
         FeatureSource<SimpleFeatureType, SimpleFeature> popShpSource =
                 GeoUtils.generateShapefileSource("E:\\Data\\可达性研究\\人口数据\\武汉市人口点_CGCS2000_114E.shp");
-        FeatureCollection<SimpleFeatureType, SimpleFeature> pops = popShpSource.getFeatures();
+        pops = (SimpleFeatureCollection)popShpSource.getFeatures();
+        SimpleFeature[] popFeatures = pops.toArray(new SimpleFeature[0]);
+        popRtree = GeoUtils.generatePopRtree(Arrays.stream(popFeatures).collect(Collectors.toSet()));
 
 //        // 构建edge空间索引
 //        STRtree edgeRtree = GeoUtils.generateEdgeRtree(myGraph.edges);
 //        // 将人口数据附着到edge上
 //        // 将人口数据附着运算并行化，可以大幅度提升执行速度
+//        popPointEdgeMap = new ConcurrentHashMap<SimpleFeature, Edge>(pops.size());
 //        Arrays.stream(pops.toArray(new SimpleFeature[0])).parallel()
 //                .forEach(popFeature -> {
 //                    SimpleFeature simpleFeature = (SimpleFeature) popFeature;
 //                    Edge edge = GeoUtils.searchClosestEdge(edgeRtree, (Geometry) simpleFeature.getDefaultGeometry());
+//                    popPointEdgeMap.put(simpleFeature,edge);
 //                    if (edge == null) return;
 //                    double popnum = (double) simpleFeature.getAttribute("grid_code");
 //                    edge.pop += popnum;
@@ -128,28 +153,66 @@ public class MainTest {
         myGraph.edges
                 .parallelStream().forEach(edge -> edge.splitEdge(SPLIT_LENGTH));
         after = LocalDateTime.now();
-        System.out.println("step2 | 分割edge耗时：" + Duration.between(before, after).toMillis() + "ms");
 
         subEdgeList = myGraph.edges.parallelStream()
                 .flatMap(edge -> edge.subEdges.stream())
                 .collect(toList());
 
+        // subEdge的中点
+        centerSubEdgeMap = subEdgeList.parallelStream()
+                .collect(toMap(subEdge -> subEdge.center, subEdge -> subEdge,(a,b)-> a));
 
+        System.out.println("step2 | 分割edge耗时：" + Duration.between(before, after).toMillis() + "ms");
+
+        // 人口附着
         before = LocalDateTime.now();
         // 构建edge空间索引
-        STRtree subEdgeRtree = GeoUtils.generateEdgeRtree(new HashSet<Edge>(subEdgeList));
+//        STRtree subEdgeRtree = GeoUtils.generateEdgeRtree(new HashSet<Edge>(subEdgeList));
+        STRtree centerRtree = GeoUtils.generatePointRtree(centerSubEdgeMap.keySet());
         // 将人口数据附着到edge上
         // 将人口数据附着运算并行化，可以大幅度提升执行速度
-        Arrays.stream(pops.toArray(new SimpleFeature[0])).parallel()
-                .forEach(popFeature -> {
+        popPointEdgeMap = new ConcurrentHashMap<SimpleFeature, Edge>(pops.size());
+        int threadNum = 8;
+        int oneThreadTaskNum = popFeatures.length / threadNum;
+        CountDownLatch countDownLatch = new CountDownLatch(threadNum);
+        for (int i = 0; i < threadNum; i++) {
+            int start = oneThreadTaskNum * i;
+            int end = i != threadNum - 1 ? oneThreadTaskNum * (i+1) : popFeatures.length;
+            Runnable task = ()->{
+                for (int j = start; j < end; j++) {
+                    SimpleFeature popFeature = popFeatures[j];
                     SimpleFeature simpleFeature = (SimpleFeature) popFeature;
-                    Edge subEdge = GeoUtils.searchClosestEdge(subEdgeRtree, (Geometry) simpleFeature.getDefaultGeometry());
+                    Geometry point = (Geometry) simpleFeature.getDefaultGeometry();
+//                    Edge subEdge = GeoUtils.searchClosestEdge(subEdgeRtree, point);
+                    Point center = GeoUtils.searchClosestPoint(centerRtree, point);
+                    Edge subEdge = centerSubEdgeMap.get(center);
+                    popPointEdgeMap.put(simpleFeature,subEdge);
                     if (subEdge == null) return;
                     double popnum = (double) simpleFeature.getAttribute("grid_code");
                     subEdge.pop += popnum;
-                });
+                }
+                countDownLatch.countDown();
+            };
+            executorService.submit(task);
+        }
+        countDownLatch.await();
+
+
+//        Arrays.stream(popFeatures).parallel()
+//                .forEach(popFeature -> {
+//                    SimpleFeature simpleFeature = (SimpleFeature) popFeature;
+//                    Geometry point = (Geometry) simpleFeature.getDefaultGeometry();
+////                    Edge subEdge = GeoUtils.searchClosestEdge(subEdgeRtree, point);
+//                    Point center = GeoUtils.searchClosestPoint(centerRtree, point);
+//                    Edge subEdge = centerSubEdgeMap.get(center);
+//                    popPointEdgeMap.put(simpleFeature,subEdge);
+//                    if (subEdge == null) return;
+//                    double popnum = (double) simpleFeature.getAttribute("grid_code");
+//                    subEdge.pop += popnum;
+//                });
         after = LocalDateTime.now();
         System.out.println("step3 | 附着人口数据耗时：" + Duration.between(before, after).toMillis() + "ms");
+
 
         // 生成空间索引
         before = LocalDateTime.now();
@@ -181,9 +244,9 @@ public class MainTest {
         System.out.println("step5 | 读取poi数据耗时：" + Duration.between(before, after).toMillis() + "ms");
 
         before = LocalDateTime.now();
-        // 根据poi点的数量初始化subEdge和Node用于存储costDis的double数组
-        myGraph.nodes.parallelStream().forEach(node -> node.costDisArray = new double[pois.size()]);
-        myGraph.nodes.parallelStream().forEach(node -> node.pois = new Poi[pois.size()]);
+//        // 根据poi点的数量初始化subEdge和Node用于存储costDis的double数组
+//        myGraph.nodes.parallelStream().forEach(node -> node.costDisArray = new double[pois.size()]);
+//        myGraph.nodes.parallelStream().forEach(node -> node.pois = new Poi[pois.size()]);
 
         subEdgeList.parallelStream().forEach(subEdge -> subEdge.subEdgeCostDisArray = new double[pois.size()]);
         subEdgeList.parallelStream().forEach(subEdge -> subEdge.pois = new Poi[pois.size()]);
@@ -194,7 +257,7 @@ public class MainTest {
 
 
     public void calculate(final double COST_THRESHOLD,
-                          final double BAND_WITH, final String subDirName) throws Exception {
+                          final double BAND_WITH) throws Exception {
 
         // 初始化容器
         clearDisArray();
@@ -207,31 +270,37 @@ public class MainTest {
         LocalDateTime after = LocalDateTime.now();
         System.out.println("step7 | 计算最短路径耗 + 路网插值时：" + Duration.between(before, after).toMillis() + "ms");
 
-        before = LocalDateTime.now();
-        Map<Node, Double> collect = myGraph.nodes.parallelStream()
-                .collect(toMap(node -> node, node -> {
-                    if (node.nNum == 0) return 0.0;
-                    double[] disArray = new double[node.nNum];
-                    System.arraycopy(node.costDisArray, 0, disArray, 0, node.nNum);
-                    Poi[] poiArray = new Poi[node.nNum];
-                    System.arraycopy(node.pois, 0, poiArray, 0, node.nNum);
-                    double result = KDE.kde_pop_resource_weight(disArray
-                            , BAND_WITH, KDE.Kernal.GUASS, poiArray);
-                    if(MathFunc.doubleIsLegal(result)){
-                        return result;
-                    }
-                    return 0.0;
-                }));
-        after = LocalDateTime.now();
-        System.out.println("step8 | node 可达性计算耗时：" + Duration.between(before, after).toMillis() + "ms");
-
-        String filePath = dirPath +
-                "\\计算结果\\组合结果_" +
-                subDirName + "\\node\\" +
-                "_" + BAND_WITH + "m" +
-                "_" + COST_THRESHOLD + "min_" +
-                ".shp";
-        TransformUtils.saveNodeFeature(collect, filePath);
+//        before = LocalDateTime.now();
+//        Map<Node, Double> collect = myGraph.nodes.parallelStream()
+//                .collect(toMap(node -> node, node -> {
+//                    if (node.nNum == 0) return 0.0;
+//                    double[] disArray = new double[node.nNum];
+//                    System.arraycopy(node.costDisArray, 0, disArray, 0, node.nNum);
+//                    for (int i = 0; i < disArray.length; i++) {
+//                        disArray[i] *= TIME_FACTOR;
+//                    }
+//                    Poi[] poiArray = new Poi[node.nNum];
+//                    System.arraycopy(node.pois, 0, poiArray, 0, node.nNum);
+//                    double result = KDE.kde_pop_resource_weight(disArray
+//                            , BAND_WITH, KDE.Kernal.GUASS, poiArray);
+//                    if(MathFunc.doubleIsLegal(result)){
+//                        return result;
+//                    }
+//                    return 0.0;
+//                }));
+//        after = LocalDateTime.now();
+//        System.out.println("step8 | node 可达性计算耗时：" + Duration.between(before, after).toMillis() + "ms");
+//
+//        before = LocalDateTime.now();
+//        String filePath = dirPath +
+//                "\\计算结果\\组合结果_" +
+//                subDirName + "\\node\\" +
+//                "_" + BAND_WITH + "m" +
+//                "_" + COST_THRESHOLD + "min_" +
+//                ".shp";
+//        TransformUtils.saveNodeFeature(collect, filePath);
+//        after = LocalDateTime.now();
+//        System.out.println("step9 | 存储路网节点耗时：" + Duration.between(before,after).toMillis() + "ms");
 
         // 对路网剖分结构进行插值，并计算核密度可达性
         before = LocalDateTime.now();
@@ -246,19 +315,56 @@ public class MainTest {
                             , BAND_WITH, KDE.Kernal.GUASS, poiArray);
                 }));
         after = LocalDateTime.now();
-        System.out.println("step9 | 路网可达性计算耗时：" + Duration.between(before,after).toMillis() + "ms");
+        System.out.println("step8 | 路网可达性计算耗时：" + Duration.between(before,after).toMillis() + "ms");
 
         // 存储路网数据结构
         before = LocalDateTime.now();
-        filePath = dirPath +
+        String filePath = dirPath +
                 "\\计算结果\\组合结果_" +
                 subDirName + "\\link\\" +
                 "_" + BAND_WITH + "m" +
                 "_" + COST_THRESHOLD + "min_" +
                 ".shp";
+
         TransformUtils.saveEdgeFeature(subEdgeCostMap, filePath);
         after = LocalDateTime.now();
-        System.out.println("step10 | 存储路网剖分结构耗时：" + Duration.between(before,after).toMillis() + "ms");
+        System.out.println("step9 | 存储路网剖分结构耗时：" + Duration.between(before,after).toMillis() + "ms");
+
+        // 计算栅格可达性
+        before = LocalDateTime.now();
+        Map<SimpleFeature, Double> coverage = popPointEdgeMap.entrySet().parallelStream()
+                .collect(toMap(entry -> entry.getKey(), entry -> {
+                    SimpleFeature key = entry.getKey();
+                    Edge subEdge = entry.getValue();
+                    double cost = subEdgeCostMap.get(subEdge);
+                    Point popPoint = (Point) key.getDefaultGeometry();
+                    double popPointToEdgeDis = popPoint.distance(subEdge.lineString);
+                    double popPointToEdgeCost =  (popPointToEdgeDis / 1000) / DijkstraPathFinder.defaultWalkSpeed * 60;
+
+                    if(subEdge.eNum == 0) return 0.0;
+                    double[] disArray = new double[subEdge.eNum];
+                    System.arraycopy(subEdge.subEdgeCostDisArray, 0, disArray, 0, subEdge.eNum);
+                    for (int i = 0; i < disArray.length; i++) {
+                        disArray[i] += popPointToEdgeCost;
+                    }
+                    Poi[] poiArray = new Poi[subEdge.eNum];
+                    System.arraycopy(subEdge.pois, 0, poiArray, 0, subEdge.eNum);
+                    return KDE.kde_pop_resource_weight(disArray
+                            , BAND_WITH, KDE.Kernal.GUASS, poiArray);
+                }));
+
+        after = LocalDateTime.now();
+        System.out.println("step10 | 栅格可达性计算耗时：" + Duration.between(before,after).toMillis() + "ms");
+
+
+        List<SimpleFeature> simpleFeatureList = GeoUtils.addColumn(pops, "cost", coverage);
+        filePath = dirPath +
+                "\\计算结果\\组合结果_" +
+                subDirName + "\\pop\\" +
+                "" + (int)BAND_WITH + "m" +
+                "_" + (int)COST_THRESHOLD + "min" +
+                ".shp";
+        GeoUtils.saveFeatures(simpleFeatureList,filePath);
     }
 
     @Test
@@ -267,12 +373,17 @@ public class MainTest {
         System.out.println(Arrays.toString(normalize));
     }
 
+    @Test
+    public void testDoubleisLegal(){
+        System.out.println(MathFunc.doubleIsLegal(-1.0/0.0));
+    }
+
     public void clearDisArray() {
-        for (Node node : myGraph.nodes) {
-            Arrays.fill(node.costDisArray, 0);
-            Arrays.fill(node.pois, null);
-            node.nNum = 0;
-        }
+//        for (Node node : myGraph.nodes) {
+//            Arrays.fill(node.costDisArray, 0);
+//            Arrays.fill(node.pois, null);
+//            node.nNum = 0;
+//        }
         subEdgeList.forEach(edge -> {
             Arrays.fill(edge.subEdgeCostDisArray, 0);
             Arrays.fill(edge.pois, null);
