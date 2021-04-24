@@ -19,10 +19,9 @@ public class DampingFunFactory {
                 .sorted(Double::compareTo)
                 .collect(Collectors.toList());
         return (x)->{
-            int index = 0;
             for (int i = 0; i < disList.size(); i++) {
-                if(disList.get(index) >= x){
-                    return disFactorMap.get(index) * x;
+                if(disList.get(i) >= x){
+                    return disFactorMap.get(disList.get(i)) * x;
                 }
             }
             return 0;

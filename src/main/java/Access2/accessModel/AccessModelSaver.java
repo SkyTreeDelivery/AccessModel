@@ -14,6 +14,12 @@ public class AccessModelSaver {
             GeoFileUtils.saveNodeFeature(accessModel.dataBox.demandPoints, savePath);
         }else if(type == DemandPoint.DemandType.EDGE){
             GeoFileUtils.saveEdgeFeature(accessModel.dataBox.demandPoints, savePath);
+        }else if(type == DemandPoint.DemandType.POLYGON){
+            GeoFileUtils.savePolygonFeature(accessModel.dataBox.demandPoints, savePath);
+        }else if(type == DemandPoint.DemandType.GRID_FROM_POP){
+            GeoFileUtils.saveNodeFeature(accessModel.dataBox.demandPoints, savePath);
+        }else if(type == DemandPoint.DemandType.GRID){
+            GeoFileUtils.savePolygonFeature(accessModel.dataBox.demandPoints, savePath);
         }
     }
 }

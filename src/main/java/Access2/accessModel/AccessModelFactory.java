@@ -1,5 +1,6 @@
 package Access2.accessModel;
 
+import Access2.accessModel.databox.DataBox;
 import Access2.accessModel.strategy.AggregationFun;
 import Access2.accessModel.strategy.DampingFun;
 import Access2.accessModel.strategy.FunFactory.DampingFunFactory;

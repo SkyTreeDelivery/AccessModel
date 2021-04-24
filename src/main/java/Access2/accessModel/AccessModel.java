@@ -4,6 +4,7 @@ import Access2.accessModel.ShortestPath.Dijkstra.DijkstraPathFinder;
 import Access2.accessModel.ShortestPath.Dijkstra.DijkstraResult;
 import Access2.accessModel.dataPoint.DataPoint;
 import Access2.accessModel.dataPoint.ResourcePoint;
+import Access2.accessModel.databox.DataBox;
 import Access2.accessModel.strategy.*;
 import Access2.graph.Graph;
 

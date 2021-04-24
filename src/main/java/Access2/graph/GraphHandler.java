@@ -9,6 +9,12 @@ import org.locationtech.jts.geom.LineString;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * note：因此请勿继续使用作为输入参数的图。请以最后得到的图为计算基准。
+ *
+ * 出于性能考虑，该类中的操作不做深拷贝，而是采用轻量级的方式对图进行处理。
+ * 这意味着原图对象中的edge和node对象的属性可能在后续操作中被修改。
+ */
 public class GraphHandler {
 
     private static final GeometryFactory geometryFactory = new GeometryFactory();
@@ -51,6 +57,55 @@ public class GraphHandler {
                     nodeQueue.offer(edge.in);
                     hasHandledNode.add(edge.in);
                 });
+                // 处理出边
+                poll.outEdges.forEach(edge -> {
+                    if (hasHandledNode.contains(edge.out)) {
+                        return;
+                    }
+                    nodes.remove(edge.out);
+                    nodeQueue.offer(edge.out);
+                    hasHandledNode.add(edge.out);
+                });
+            }
+            // 生成子图
+            Graph subGraph = new Graph(thisEdge, thisNodes);
+            subGraphs.add(subGraph);
+        }
+
+        // 选择最大的子图
+        Graph maxGraph = subGraphs.stream().max(Comparator.comparing((Graph graph) -> graph.nodes.size()))
+                .orElse(multiPartGraph);
+        return maxGraph;
+    }
+
+    public static Graph extractMaxGraphWithoutHangingEdge(Graph multiPartGraph) {
+        if (multiPartGraph == null || multiPartGraph.nodes.size() == 0 || multiPartGraph.edges.size() == 0) {
+            throw new IllegalArgumentException();
+        }
+        ArrayList<Graph> subGraphs = new ArrayList<Graph>();
+        Deque<Node> nodeQueue = new LinkedList<Node>();
+        // multiGraph所有的节点
+        List<Node> nodes = new LinkedList<Node>(multiPartGraph.nodes);
+        while (nodes.size() != 0) {
+
+            // 执行一次广度优先搜索，处理一个子图
+            // 已处理节点，防止一个节点被多次处理
+            HashSet<Node> hasHandledNode = new LinkedHashSet<Node>();
+            // 该子图的节点
+            HashSet<Node> thisNodes = new HashSet<Node>();
+            // 该子图的边
+            HashSet<Edge> thisEdge = new HashSet<Edge>();
+
+            // 提取一个种子节点
+            Node startNode = nodes.get(0);
+            nodes.remove(startNode);
+            nodeQueue.offer(startNode);
+            hasHandledNode.add(startNode);
+            while (nodeQueue.size() != 0) {
+                Node poll = nodeQueue.poll();
+                // 将子图数据装入集合中
+                thisNodes.add(poll);
+                thisEdge.addAll(poll.outEdges);
                 // 处理出边
                 poll.outEdges.forEach(edge -> {
                     if (hasHandledNode.contains(edge.out)) {
@@ -152,5 +207,21 @@ public class GraphHandler {
         Edge subEdge = new Edge(in, out, weight / num, newLineString.getLength(), newLineString);
         result.add(subEdge);
         return result;
+    }
+
+    public static Graph removeHangingEdge(Graph graph){
+        Set<Edge> edges = graph.edges;
+        Set<Edge> newEdge = null;
+        while(true){
+            edges.stream().filter(edge -> edge.in.inEdges.size() == 0).forEach(edge -> {
+                edge.out.inEdges.remove(edge);
+            });
+            newEdge = edges.stream().filter(edge -> edge.in.inEdges.size() != 0).collect(Collectors.toSet());
+            if(edges.size() == newEdge.size()){
+                break;
+            }
+            edges = newEdge;
+        }
+        return GraphFactory.generateGraphFromEdges(newEdge);
     }
 }

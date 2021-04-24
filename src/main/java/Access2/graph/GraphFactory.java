@@ -45,7 +45,7 @@ public class GraphFactory {
 
             // 生成link对象。
             Stream<String> linkStream = Files.lines(Paths.get(linkCSVPath));
-            linkStream.skip(1).parallel().forEach(line->{
+            linkStream.skip(1).forEach(line->{
                 String[] data = pattern.split(line);
                 Integer linkId = Integer.parseInt(data[0]);
                 String name = data[1];
@@ -160,7 +160,9 @@ public class GraphFactory {
         }).flatMap(Collection::stream)
                 .collect(Collectors.toSet());
 
-        return new Graph(edges, new HashSet<>(nodeSubNodeMap.values()));
+        Set<Node> nodes = edges.stream().flatMap(edge -> Stream.of(edge.in, edge.out)).collect(Collectors.toSet());
+
+        return new Graph(edges, nodes);
     }
 
     public static Graph generateGraphFromEdges(Set<Edge> edges){
