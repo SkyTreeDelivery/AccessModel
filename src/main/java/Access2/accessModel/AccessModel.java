@@ -77,7 +77,7 @@ public class AccessModel {
 
     private double realDis(ResourcePoint resourcePoint, DataPoint demandPoint, DijkstraResult dijkstraResult){
         double roadDis = dijkstraResult.nodeMap.get(demandPoint.closestNode).cost;
-        return roadDis + resourcePoint.connDis + demandPoint.connDis;
+        return roadDis + resourcePoint.connCost + demandPoint.connCost;
     }
 
     public static class DemandPackage {

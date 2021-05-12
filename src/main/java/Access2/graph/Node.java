@@ -9,11 +9,20 @@ import java.util.List;
 
 public class Node {
 
-    private static final GeometryFactory geometryFactory = new GeometryFactory();
+    // Node ID生成器
     private static int idSerial = 1000*1000;
+    private static final GeometryFactory geometryFactory = new GeometryFactory();
+
+    // Node id
     public Integer id;
+
+    // node的位置
     public Point point;
+
+    // 入边集合
     public List<Edge> inEdges;
+
+    // 出边集合
     public List<Edge> outEdges;
 
     public Node() {

@@ -4,14 +4,20 @@ import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
 import org.locationtech.jts.geom.LineString;
 
+/**
+ *  表示有向图数据结构中的边
+ */
 public class Edge {
 
     // Edge ID生成器
     private static int idSerial = 1000 * 1000;
     private final static GeometryFactory geometryFactory = new GeometryFactory();
 
+    // edge的id
     public Integer id;
+    // 边的入点
     public Node in;
+    // 边的出点
     public Node out;
     // edge对象的权重，在项目中主要指路段的通行时间，也可以指定为其他有效的通行成本
     public double weight;
@@ -50,6 +56,11 @@ public class Edge {
         return new Coordinate(start.x + scale * ( end.x - start.x), start.y + scale * ( end.y - start.y));
     }
 
+    /**
+     * 深拷贝
+     * @param edge
+     * @return
+     */
     public static Edge deepCopy(Edge edge){
         Node in = Node.deepCopy(edge.in);
         Node out = Node.deepCopy(edge.out);

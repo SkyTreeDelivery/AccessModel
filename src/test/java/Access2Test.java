@@ -17,7 +17,6 @@ import org.locationtech.jts.geom.Point;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.IntStream;
 
 public class Access2Test {
 
@@ -34,7 +33,7 @@ public class Access2Test {
     String polygonPath = "E:\\Data\\可达性研究\\建筑数据\\武汉建筑_CGCS_2000_114E.shp";
 
     static {
-//        System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "7");
+        System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "7");
     }
 
     double bandWith = 20;
@@ -85,24 +84,24 @@ public class Access2Test {
 //        System.out.println("step2 | 读取数据耗时：" + Duration.between(before,after).toMillis() + "ms");
 
 
-//        before = LocalDateTime.now();
-//        DataBoxHandler.attachDataPoint(this.graph, dataBox,3600,3600,3600, AccessModel.DEFAULT_WALK_SPEED);
-//        after = LocalDateTime.now();
-//        System.out.println("step3 | 数据点附着耗时：" + Duration.between(before,after).toMillis() + "ms");
+        before = LocalDateTime.now();
+        DataBoxHandler.attachDataPoint(this.graph, dataBox,1000,4000,4000, AccessModel.DEFAULT_WALK_SPEED);
+        after = LocalDateTime.now();
+        System.out.println("step3 | 数据点附着耗时：" + Duration.between(before,after).toMillis() + "ms");
 
 
-        IntStream.rangeClosed(1, 50).map(i -> i * 200).forEach(popSearchDistance ->{
-            try {
-                System.out.println("搜索半径：" + popSearchDistance + "m");
-
-                LocalDateTime before0 = LocalDateTime.now();
-                DataBoxHandler.attachDataPoint(this.graph, dataBox,3600,3600,popSearchDistance, AccessModel.DEFAULT_WALK_SPEED);
-                LocalDateTime after0 = LocalDateTime.now();
-                System.out.println("step3 | 数据点附着耗时：" + Duration.between(before0,after0).toMillis() + "ms");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
+//        IntStream.rangeClosed(1, 50).map(i -> i * 200).forEach(popSearchDistance ->{
+//            try {
+//                System.out.println("搜索半径：" + popSearchDistance + "m");
+//
+//                LocalDateTime before0 = LocalDateTime.now();
+//                DataBoxHandler.attachDataPoint(this.graph, dataBox,3600,3600,popSearchDistance, AccessModel.DEFAULT_WALK_SPEED);
+//                LocalDateTime after0 = LocalDateTime.now();
+//                System.out.println("step3 | 数据点附着耗时：" + Duration.between(before0,after0).toMillis() + "ms");
+//            } catch (Exception e) {
+//                e.printStackTrace();
+//            }
+//        });
     }
 
     @Test

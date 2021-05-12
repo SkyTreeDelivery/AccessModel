@@ -19,6 +19,11 @@ public class GraphHandler {
 
     private static final GeometryFactory geometryFactory = new GeometryFactory();
 
+    /**
+     * 从图中提取出最大连通子图
+     * @param multiPartGraph 原始图
+     * @return 原始图中的最大连通子图
+     */
     public static Graph extractMaxGraph(Graph multiPartGraph) {
         if (multiPartGraph == null || multiPartGraph.nodes.size() == 0 || multiPartGraph.edges.size() == 0) {
             throw new IllegalArgumentException();
@@ -78,6 +83,11 @@ public class GraphHandler {
         return maxGraph;
     }
 
+    /**
+     * 从图中提取出最大连通子图，且删除悬挂边
+     * @param multiPartGraph 原始图
+     * @return 原始图中的最大连通子图
+     */
     public static Graph extractMaxGraphWithoutHangingEdge(Graph multiPartGraph) {
         if (multiPartGraph == null || multiPartGraph.nodes.size() == 0 || multiPartGraph.edges.size() == 0) {
             throw new IllegalArgumentException();
@@ -127,12 +137,24 @@ public class GraphHandler {
         return maxGraph;
     }
 
+    /**
+     * 将边分割为多个子边，当原始边长度小于目标分割长度*1.5时不分割，否则分割为等长的子边
+     * @param edges 待分割的边集
+     * @param targetLength 目标分割长度
+     * @return 分割后的子边集合
+     */
     public static Set<Edge> splitEdge(Set<Edge> edges, double targetLength) {
         return edges.parallelStream()
                 .flatMap(edge -> splitEdge(edge, targetLength).stream())
                 .collect(Collectors.toSet());
     }
 
+    /**
+     *  将边分割为多个子边，当原始边长度小于目标分割长度*1.5时不分割，否则分割为等长的子边
+     * @param edge 待分割的边
+     * @param targetLength 目标分割长度
+     * @return 分割后的子边集合
+     */
     private static List<Edge> splitEdge(Edge edge, double targetLength) {
         Node in = Node.deepCopy(edge.in);
         Node out = null;
@@ -207,21 +229,5 @@ public class GraphHandler {
         Edge subEdge = new Edge(in, out, weight / num, newLineString.getLength(), newLineString);
         result.add(subEdge);
         return result;
-    }
-
-    public static Graph removeHangingEdge(Graph graph){
-        Set<Edge> edges = graph.edges;
-        Set<Edge> newEdge = null;
-        while(true){
-            edges.stream().filter(edge -> edge.in.inEdges.size() == 0).forEach(edge -> {
-                edge.out.inEdges.remove(edge);
-            });
-            newEdge = edges.stream().filter(edge -> edge.in.inEdges.size() != 0).collect(Collectors.toSet());
-            if(edges.size() == newEdge.size()){
-                break;
-            }
-            edges = newEdge;
-        }
-        return GraphFactory.generateGraphFromEdges(newEdge);
     }
 }

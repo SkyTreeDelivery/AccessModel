@@ -11,6 +11,16 @@ import java.time.LocalDateTime;
 
 public class DataBoxHandler {
 
+    /**
+     * 搜索距离数据点最近的路网节点
+     * @param graph 图数据结构
+     * @param dataBox 数据点
+     * @param resourceSearchDistance 资源点搜索半径
+     * @param demandSearchDistance 需求点搜索半径
+     * @param popSearchDistance 人口点搜索半径
+     * @param walkSpeed 步行速度
+     * @throws Exception
+     */
     public static void attachDataPoint(Graph graph, DataBox dataBox, double resourceSearchDistance,
             double demandSearchDistance, double popSearchDistance, double walkSpeed) throws Exception {
 
@@ -24,7 +34,7 @@ public class DataBoxHandler {
                 .forEach(resourcePoint -> {
                     resourcePoint.closestNode = SpatialQuery.searchNearestNode(nodeRtree, resourcePoint,resourceSearchDistance);
                     double distance = resourcePoint.point.distance(resourcePoint.closestNode.point);
-                    resourcePoint.connDis = MathFunc.meter2Minute(distance, walkSpeed);
+                    resourcePoint.connCost = MathFunc.meter2Minute(distance, walkSpeed);
                 });
         after = LocalDateTime.now();
         System.out.println("step2.1 | resourcePoints附着耗时：" + Duration.between(before,after).toMillis() + "ms");
@@ -43,13 +53,13 @@ public class DataBoxHandler {
                             // Polygon和GIRD需要计算最近的节点
                             demandPoint.closestNode = SpatialQuery.searchNearestNode(nodeRtree, demandPoint, demandSearchDistance);
                             double distance = demandPoint.point.distance(demandPoint.closestNode.point);
-                            demandPoint.connDis =  MathFunc.meter2Minute(distance, walkSpeed);
+                            demandPoint.connCost =  MathFunc.meter2Minute(distance, walkSpeed);
                             break;
                         case POLYGON:
                         case GRID:
                             demandPoint.closestNode = SpatialQuery.searchNearestNode(nodeRtree, demandPoint, demandSearchDistance);
                             distance = demandPoint.point.distance(demandPoint.closestNode.point);
-                            demandPoint.connDis =  MathFunc.meter2Minute(distance, walkSpeed);
+                            demandPoint.connCost =  MathFunc.meter2Minute(distance, walkSpeed);
                             break;
                     }
                 });
@@ -61,7 +71,7 @@ public class DataBoxHandler {
                 .forEach(popPoint -> {
                     popPoint.closestNode = SpatialQuery.searchNearestNode(nodeRtree, popPoint,popSearchDistance);
                     double distance = popPoint.point.distance(popPoint.closestNode.point);
-                    popPoint.connDis = MathFunc.meter2Minute(distance, walkSpeed);
+                    popPoint.connCost = MathFunc.meter2Minute(distance, walkSpeed);
                 });
         after = LocalDateTime.now();
         System.out.println("step2.3 | popPoints附着耗时：" + Duration.between(before,after).toMillis() + "ms");
@@ -70,10 +80,6 @@ public class DataBoxHandler {
 //        System.out.println("寻找最近的点耗时:" + SpatialQuery.traverseTime / 1000 + "s");
 //        System.out.println("寻找最近的点遍历次数:" + SpatialQuery.traverseNum * 1.0 / 10_000 + "w次");
         System.out.println("pop附着总时间:" + Duration.between(before,after).toMillis() * 1.0 / 1000 + "s");
-
-        SpatialQuery.queryTime = 0;
-        SpatialQuery.queryNum = 0;
-        SpatialQuery.traverseTime = 0;
-        SpatialQuery.traverseNum = 0;
+        SpatialQuery.initTimeStatistics();
     }
 }

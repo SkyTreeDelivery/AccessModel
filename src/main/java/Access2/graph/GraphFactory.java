@@ -19,6 +19,12 @@ public class GraphFactory {
     // 预编译正则表达式
     private static Pattern pattern= Pattern.compile(",(?=([^\\\"]*\\\"[^\\\"]*\\\")*[^\\\"]*$)");
 
+    /**
+     *  从CSV数据结构中读取数据，生成有向图
+     * @param linkCSVPath linkCSV文件路径
+     * @param nodeCSVPath nodeCSV文件路径
+     * @return
+     */
     public static Graph generateGraphFromCSV(String linkCSVPath, String nodeCSVPath){
         WKTReader wktReader = new WKTReader();
 
@@ -74,6 +80,12 @@ public class GraphFactory {
         return null;
     }
 
+    /**
+     *  将原始图分割为由更小的边构成的图，当原始边长度小于目标分割长度*1.5时不分割，否则分割为等长的子边
+     * @param graph 图数据结构
+     * @param targetLength 目标分割长度
+     * @return 分割后的图
+     */
     public static Graph splitGraph(Graph graph,double targetLength){
         Map<Node, Node> nodeSubNodeMap = graph.nodes.stream()
                 .collect(Collectors.toMap(node -> node, Node::deepCopy));
@@ -165,6 +177,11 @@ public class GraphFactory {
         return new Graph(edges, nodes);
     }
 
+    /**
+     * 从边数据中生成图
+     * @param edges
+     * @return
+     */
     public static Graph generateGraphFromEdges(Set<Edge> edges){
         // 清理拓扑
         edges.forEach(edge -> {

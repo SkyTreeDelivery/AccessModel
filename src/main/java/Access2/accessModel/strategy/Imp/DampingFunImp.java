@@ -15,10 +15,12 @@ public class DampingFunImp {
 
     final public static DampingFun expDamp_2 = DampingFunFactory.expDampingFun(2);
 
+    // 高斯衰减
     final public static DampingFun gauss = (x) -> {
         return (1.0 / TWO_PI_SQRT) * exp(-0.5 * x * x);
     };
 
+    // 抛物线衰减
     final public static DampingFun parabolic = (x) -> {
         if(Math.abs(x) > 1){
             throw new IllegalArgumentException("输入的值的绝对值不能大于1");
@@ -26,6 +28,7 @@ public class DampingFunImp {
         return (3.0 / 4.0) * (1 -  x * x);
     };
 
+    // 四次方衰减
     final public DampingFun quartic = (x) -> {
         if(Math.abs(x) > 1){
             throw new IllegalArgumentException("输入的值的绝对值不能大于1");
