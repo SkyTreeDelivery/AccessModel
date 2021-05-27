@@ -105,6 +105,23 @@ public class Access2Test {
     }
 
     @Test
+    public void test() throws Exception {
+        Graph myGraph = GraphFactory.generateGraphFromCSV("link.csv", "node.csv");
+        graph = GraphHandler.extractMaxGraph(myGraph);
+        dataBox = DataBoxFactory.getDataBox_poi_popGrid_edges(poiPath, popPath, this.graph.edges);
+        DataBoxHandler.attachDataPoint(this.graph, dataBox,1000,4000,4000, AccessModel.DEFAULT_WALK_SPEED);
+        AccessModel accessModel = AccessModelFactory.kernel_basic(
+                graph,
+                dataBox,
+                DampingFunImp.parabolic,
+                bandWith,
+                AggregationFunImp.sum
+        );
+        accessModel.calculate();
+        AccessModelSaver.save("access.shp", accessModel);
+    }
+
+    @Test
     public void kernel_basic_test() throws Exception {
 
         init();

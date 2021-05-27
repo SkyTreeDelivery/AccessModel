@@ -73,7 +73,6 @@ public class Test1 {
         return atomicInteger.get();
     }
 
-
     private void increment(AtomicInteger atomicInteger) {
         atomicInteger.incrementAndGet();
         try {
@@ -148,4 +147,6 @@ public class Test1 {
                 .collect(Collectors.toMap(num -> num, num -> num * 1.0));
         System.out.println(collect);
     }
+
+
 }

@@ -1,6 +1,7 @@
 import org.junit.Test;
 
 import java.util.concurrent.*;
+import java.util.stream.IntStream;
 
 public class ThreadTest {
 
@@ -120,4 +121,33 @@ public class ThreadTest {
             return f2.compute() + f1.join();
         }
     }
+
+    @Test
+    public void forkJoinPoolTest() throws ExecutionException, InterruptedException {
+        ForkJoinPool forkJoinPool = new ForkJoinPool(3);
+        ForkJoinTask<?> submit = forkJoinPool.submit(() -> {
+            IntStream.range(0, 3).parallel().forEach((number) -> {
+                try {
+                    System.out.println(Thread.currentThread().getName());
+                    TimeUnit.SECONDS.sleep(1);
+                } catch (InterruptedException e) {
+                }
+            });
+            System.out.println("finish");
+        });
+        submit.get();
+        ForkJoinPool forkJoinPool2 = new ForkJoinPool(3);
+        ForkJoinTask<?> submit1 = forkJoinPool2.submit(() -> {
+            IntStream.range(0, 3).parallel().forEach((number) -> {
+                try {
+                    System.out.println(Thread.currentThread().getName());
+                    Thread.sleep(5);
+                } catch (InterruptedException e) {
+                }
+            });
+        });
+        submit1.get();
+
+    }
+
 }
