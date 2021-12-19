@@ -36,21 +36,24 @@ public class DataPointFactory {
         pois.accepts(poiFeature -> {
             SimpleFeature simpleFeature = (SimpleFeature) poiFeature;
             // 资源点权重
-            Object data = simpleFeature.getAttribute("weight");
+            Object data = simpleFeature.getAttribute("sj");
             double weight = 0.0;
             // 如果数据为整数，则会为转换为Long类型，如数据为小数，则会被转换为Double类型
             if(data instanceof Long){
                 weight = ((Long)data).intValue();
             }else if(data instanceof Double){
                 weight = ((Double)data).intValue();
+            }else if(data instanceof Integer){
+                weight = (Integer) data;
             }
             ResourcePoint resourcePoint = new ResourcePoint();
-            resourcePoints.add(resourcePoint);
             Object defaultGeometry = simpleFeature.getDefaultGeometry();
             if(defaultGeometry instanceof Point){
                 resourcePoint.point = (Point) defaultGeometry;
             }
             resourcePoint.resourceWeight = weight;
+            resourcePoint.d0 = 10;//(double) simpleFeature.getAttribute("d0");
+            resourcePoints.add(resourcePoint);
         }, null);
 
         // 过滤掉point为空的资源点
@@ -85,7 +88,7 @@ public class DataPointFactory {
             if(defaultGeometry instanceof Point){
                 popPoint.point = (Point) defaultGeometry;
             }
-            popPoint.popNum = (double) simpleFeature.getAttribute("grid_code") / 100000;
+            popPoint.popNum = (double) simpleFeature.getAttribute("GRID_CODE") / 100000;
         }, null);
 
         // 过滤掉point为空的资源点

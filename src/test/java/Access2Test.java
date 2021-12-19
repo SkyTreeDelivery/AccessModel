@@ -9,10 +9,11 @@ import Access2.accessModel.strategy.Imp.DampingFunImp;
 import Access2.graph.Graph;
 import Access2.graph.GraphFactory;
 import Access2.graph.GraphHandler;
+import Access2.utils.GeometryUtils;
 import org.junit.Test;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.*;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKTReader;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -24,10 +25,10 @@ public class Access2Test {
     String dirPath = "E:\\Data\\可达性研究\\Accessibility_wuhan_重构";
 
     // 资源
-    String poiPath = "E:\\Data\\可达性研究\\医院数据\\二三级医院_加权_CGCS2000_114E_all.shp";
+    String poiPath = "C:\\Users\\senhu\\app\\workflow\\研一\\地理信息科学理论与方法\\实验\\数据\\武汉市医疗设施\\综合医院、专科医院、诊所\\merge2.shp";
 
     // 人口分布
-    String popPath = "E:\\Data\\可达性研究\\人口数据\\武汉市人口点_CGCS2000_114E.shp";
+    String popPath = "C:\\Users\\senhu\\app\\workflow\\研一\\地理信息科学理论与方法\\实验\\数据\\武汉市中心城区\\人口\\pop_project.shp";
 
     // 建筑数据
     String polygonPath = "E:\\Data\\可达性研究\\建筑数据\\武汉建筑_CGCS_2000_114E.shp";
@@ -36,7 +37,7 @@ public class Access2Test {
         System.setProperty("java.util.concurrent.ForkJoinPool.common.parallelism", "7");
     }
 
-    double bandWith = 20;
+    double bandWith = 100;
 
     double splitLength = 50;
 
@@ -45,9 +46,10 @@ public class Access2Test {
 
     public void init() throws Exception {
 
+        String nodeCsvPath = "C:\\Users\\senhu\\app\\workflow\\研一\\地理信息科学理论与方法\\实验\\数据\\武汉市中心城区\\道路\\路网\\node\\node_transform2csv.csv";
+        String linkCsvPath = "C:\\Users\\senhu\\app\\workflow\\研一\\地理信息科学理论与方法\\实验\\数据\\武汉市中心城区\\道路\\路网\\link\\link_transform2csv.csv";
         LocalDateTime before = LocalDateTime.now();
-        Graph myGraph = GraphFactory.generateGraphFromCSV(dirPath + "\\link.csv"
-                , dirPath + "\\node.csv");
+        Graph myGraph = GraphFactory.generateGraphFromCSV(linkCsvPath,nodeCsvPath);
 
 //        graph = GraphHandler.extractMaxGraphWithoutHangingEdge(myGraph);
         graph = GraphHandler.extractMaxGraph(myGraph);
@@ -66,7 +68,7 @@ public class Access2Test {
 //        System.out.println("step2 | 读取数据耗时：" + Duration.between(before,after).toMillis() + "ms");
 
         before = LocalDateTime.now();
-        dataBox = DataBoxFactory.getDataBox_poi_popGrid_edges(poiPath, popPath, this.graph.edges);
+        dataBox = DataBoxFactory.getDataBox_poi_popGrid_gridFromPop(poiPath, popPath);
         dirPath += "\\Edge";
         after = LocalDateTime.now();
         System.out.println("step2 | 读取数据耗时：" + Duration.between(before,after).toMillis() + "ms");
@@ -85,7 +87,7 @@ public class Access2Test {
 
 
         before = LocalDateTime.now();
-        DataBoxHandler.attachDataPoint(this.graph, dataBox,1000,4000,4000, AccessModel.DEFAULT_WALK_SPEED);
+        DataBoxHandler.attachDataPoint(this.graph, dataBox,1000,4000,4000, 5);
         after = LocalDateTime.now();
         System.out.println("step3 | 数据点附着耗时：" + Duration.between(before,after).toMillis() + "ms");
 
@@ -105,11 +107,22 @@ public class Access2Test {
     }
 
     @Test
+public void test2() throws ParseException {
+        WKTReader wktReader = new WKTReader();
+        MultiLineString lineString = (MultiLineString) wktReader.read("MULTILINESTRING ((536686.9140999997 3362275.6668, 536689.2882000003 3362275.8292999994))");
+        System.out.println(GeometryUtils.multiLineStringToLineString(lineString));
+        String l = GeometryUtils.multiLineStringToLineString(lineString);
+        LineString string = (LineString)wktReader.read(l);
+        System.out.println(string);
+    }
+    @Test
     public void test() throws Exception {
-        Graph myGraph = GraphFactory.generateGraphFromCSV("link.csv", "node.csv");
+        String nodeCsvPath = "C:\\Users\\senhu\\app\\workflow\\研一\\地理信息科学理论与方法\\实验\\数据\\武汉市中心城区\\道路\\路网\\node\\node_transform2csv.csv";
+        String linkCsvPath = "C:\\Users\\senhu\\app\\workflow\\研一\\地理信息科学理论与方法\\实验\\数据\\武汉市中心城区\\道路\\路网\\link\\link_transform2csv.csv";
+        Graph myGraph = GraphFactory.generateGraphFromCSV(linkCsvPath, nodeCsvPath);
         graph = GraphHandler.extractMaxGraph(myGraph);
         dataBox = DataBoxFactory.getDataBox_poi_popGrid_edges(poiPath, popPath, this.graph.edges);
-        DataBoxHandler.attachDataPoint(this.graph, dataBox,1000,4000,4000, AccessModel.DEFAULT_WALK_SPEED);
+        DataBoxHandler.attachDataPoint(this.graph, dataBox,1000,4000,4000, 5);
         AccessModel accessModel = AccessModelFactory.kernel_basic(
                 graph,
                 dataBox,
@@ -138,17 +151,42 @@ public class Access2Test {
 
         accessModel.calculate();
 
-        String filePath = dirPath +
-                "\\kernel_basic_" +
-                "带宽_" + bandWith +
+        String filePath =
+                "C:\\Users\\senhu\\app\\workflow\\研一\\地理信息科学理论与方法\\实验\\数据\\武汉市中心城区\\可达性\\kernel_" +
+                "带宽_10" +
                 ".shp";
 
         LocalDateTime after = LocalDateTime.now();
         System.out.println("step4 | 可达性计算：" + Duration.between(before,after).toMillis() + "ms");
-//        AccessModelSaver.save(filePath, accessModel);
-
+        AccessModelSaver.save(filePath, accessModel);
     }
 
+    @Test
+    public void twosteps_test() throws Exception {
+
+        init();
+
+        LocalDateTime before = LocalDateTime.now();
+
+        AccessModel accessModel = AccessModelFactory.twoStepMobile_complete(
+                graph,
+                dataBox,
+                DampingFunImp.multiClassAndWeight ,
+                bandWith,
+                AggregationFunImp.sum
+        );
+
+        accessModel.calculate();
+
+        String filePath =
+                "C:\\Users\\senhu\\app\\workflow\\研一\\地理信息科学理论与方法\\实验\\数据\\武汉市中心城区\\可达性\\kernel_basic_" +
+                        "带宽_" + bandWith +
+                        ".shp";
+
+        LocalDateTime after = LocalDateTime.now();
+        System.out.println("step4 | 可达性计算：" + Duration.between(before,after).toMillis() + "ms");
+        AccessModelSaver.save(filePath, accessModel);
+    }
     @Test
     public void kernel_complete_test() throws Exception {
 

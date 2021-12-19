@@ -19,9 +19,6 @@ public class DataBox {
     // 需求点集合
     public List<DemandPoint> demandPoints;
 
-    public DataBox() {
-    }
-
     public DataBox(List<ResourcePoint> resourcePoints, List<PopPoint> popPoints, List<DemandPoint> demandPoints) {
         this.resourcePoints = resourcePoints;
         this.popPoints = popPoints;
