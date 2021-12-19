@@ -37,10 +37,10 @@ public class GraphFactory {
             final int[] i = {0};
             nodeStream.skip(1).forEach(line->{
                 String[] data = pattern.split(line);
-                Integer linkId = Integer.parseInt(data[0]);
+                Integer linkId = Integer.parseInt(data[1].substring(1,data[1].length()-1));
                 Point point = null;
                 try {
-                    point = (Point) wktReader.read(data[3]);
+                    point = (Point) wktReader.read(data[0].substring(1,data[0].length()-1));
                 } catch (ParseException e) {
                     e.printStackTrace();
                 }
@@ -51,29 +51,51 @@ public class GraphFactory {
 
             // 生成link对象。
             Stream<String> linkStream = Files.lines(Paths.get(linkCSVPath));
+            HashMap<Integer, HashMap<String,Object>> linkMap = new HashMap<>();
             linkStream.skip(1).forEach(line->{
-                String[] data = pattern.split(line);
-                Integer linkId = Integer.parseInt(data[0]);
-                String name = data[1];
-                Node from = nodeMap.get(Integer.parseInt(data[2]));
-                Node to = nodeMap.get(Integer.parseInt(data[3]));
-                LineString lineString = null;
                 try {
-                    lineString = (LineString) wktReader.read(data[11].substring(1,data[11].length()-1));
+                    String[] data = pattern.split(line);
+                    MultiLineString multiLineString = (MultiLineString) wktReader.read(data[0].substring(1,data[0].length()-1));
+                    LineString lineString = (LineString) wktReader.read(GeometryUtils.multiLineStringToLineString(multiLineString));
+                    Integer linkId = Integer.parseInt(data[2]);
+                    Node node = nodeMap.get(Integer.parseInt(data[3]));
+                    if(linkMap.containsKey(linkId)){
+                        HashMap<String,Object> linkdata = linkMap.get(linkId);
+                        List<Node> nodeList = (List<Node>) linkdata.get("node");
+                        nodeList.add(node);
+                    }else {
+                        HashMap<String,Object> map = new HashMap();
+                        List<Node> list = new ArrayList<>();
+                        list.add(node);
+                        map.put("node",list);
+                        map.put("geometry",lineString);
+                        map.put("speed",Integer.parseInt(data[35]));
+                        map.put("length",Double.parseDouble(data[65]));
+                        map.put("time",Double.parseDouble(data[66]));
+                        linkMap.put(linkId, map);
+                    }
                 } catch (ParseException e) {
                     e.printStackTrace();
                 }
-                double length = lineString.getLength();
-                double freeSpeed = Integer.parseInt(data[6]);
-                double transitTime = (length / 1000) / freeSpeed * 60; // 通行时间单位：分钟
-                Edge edge = new Edge(linkId, from, to, transitTime, length,lineString);
+            });
+            for (int key: linkMap.keySet()){
+                HashMap<String,Object> data = linkMap.get(key);
+                List<Node> nodeList = (List<Node>) data.get("node");
+                if(nodeList.size()<2){
+                    continue;
+                }
+                Node from = nodeList.get(0);
+                Node to = nodeList.get(nodeList.size()-1);
+                LineString lineString = (LineString) data.get("geometry");
+                double length = (double) data.get("length");
+                double time = (double) data.get("time");
+
+                Edge edge = new Edge(key, from, to, time, length,lineString);
                 from.outEdges.add(edge);
                 to.inEdges.add(edge);
                 edges.add(edge);
-            });
-
+            }
             return new Graph(edges, nodes);
-
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -1,8 +1,6 @@
 package Access2.utils;
 
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
+import org.locationtech.jts.geom.*;
 
 public class GeometryUtils {
 
@@ -23,5 +21,16 @@ public class GeometryUtils {
         Coordinate end = endP.getCoordinate();
         return geometryFactory.createPoint(new Coordinate(
                 start.x + scale * ( end.x - start.x), start.y + scale * ( end.y - start.y)));
+    }
+
+    public static String multiLineStringToLineString(MultiLineString multiLineString){
+        Coordinate[] coordinates = multiLineString.getCoordinates();
+        StringBuilder res = new StringBuilder("LINESTRING (");
+        for (Coordinate coordinate: coordinates){
+            res.append(coordinate.x).append(" ").append(coordinate.y).append(", ");
+        }
+        res.deleteCharAt(res.length()-2);
+        res.append(")");
+        return res.toString();
     }
 }

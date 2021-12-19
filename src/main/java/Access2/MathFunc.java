@@ -9,7 +9,7 @@ public class MathFunc {
     }
 
     public static boolean doubleIsLegal(double num){
-        return num != 1.0 / 0 && num != -1.0 / 0 && !Double.isNaN(num);
+        return num != Double.MAX_VALUE && num != Double.MIN_VALUE && !Double.isNaN(num);
     }
 
     public static double manhatten(Node v1, Node v2) {
