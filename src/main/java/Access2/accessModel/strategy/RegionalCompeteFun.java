@@ -1,7 +1,7 @@
 package Access2.accessModel.strategy;
 
 @FunctionalInterface
-public interface RegionalCompleteFun {
+public interface RegionalCompeteFun {
     /**
      * 区域竞争水平估计
      * @param pop 某个人口点的人口数

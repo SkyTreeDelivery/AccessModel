@@ -8,7 +8,7 @@ public interface AccessFun {
      * @param realAttractive 资源点的实际吸引力
      * @param dampingFun 可达性衰减函数
      * @param cost0 最大的成本阈值
-     * @return
+     * @return 可达性结果值
      */
     double access(double cost, double realAttractive, DampingFun dampingFun, double cost0);
 }
